@@ -105,17 +105,32 @@ class DQN(nn.Module):
     def __init__(self, in_channels, num_actions):
         super(DQN, self).__init__()
 
-        # input: (B, 4, 84, 80)
+        # Convolutional layers
         self.conv1 = nn.Conv2d(in_channels, 32, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
 
-        # compute conv output size manually or with a dummy forward
-        # For 84x80, this works out to 64 * 8 * 6 = 3072
-        self.fc_input_dim = 64 * 8 * 6
+        # --- compute fc_input_dim dynamically using a dummy forward ---
+        with torch.no_grad():
+            dummy = torch.zeros(1, in_channels, IMAGE_SHAPE[0], IMAGE_SHAPE[1])
+            x = torch.relu(self.conv1(dummy))
+            x = torch.relu(self.conv2(x))
+            x = torch.relu(self.conv3(x))
+            self.fc_input_dim = x.view(1, -1).size(1)
 
+        # Fully connected layers
         self.fc1 = nn.Linear(self.fc_input_dim, 512)
         self.fc2 = nn.Linear(512, num_actions)
+
+    def forward(self, x):
+        # x: (B, C=4, H, W)
+        x = torch.relu(self.conv1(x))
+        x = torch.relu(self.conv2(x))
+        x = torch.relu(self.conv3(x))
+        x = x.view(x.size(0), -1)
+        x = torch.relu(self.fc1(x))
+        return self.fc2(x)
+
 
     def forward(self, x):
         # x: (B, C=4, H, W)
@@ -288,26 +303,27 @@ def train_dqn(
 
 if __name__ == "__main__":
 
-    # 1) Baseline: batch_size = 8, target_update = 10
-    train_dqn(
-        num_episodes=300,          
-        batch_size=8,
-        target_update_interval=10,
-        results_csv="results/baseline_bs8_tu10.csv"
-    )
+    # Baseline
+   # train_dqn(
+    #    num_episodes=60,
+     #   batch_size=8,
+      #  target_update_interval=10,
+      #  results_csv="results/baseline_bs8_tu10.csv"
+   # )
 
-    # 2) Batch size experiment: batch_size = 16, target_update = 10
-    train_dqn(
-        num_episodes=300,
+    # Batch size experiment
+   train_dqn(
+        num_episodes=60,
         batch_size=16,
         target_update_interval=10,
         results_csv="results/batch16_bs16_tu10.csv"
     )
 
-    # 3) Target network experiment: batch_size = 8, target_update = 3
-    train_dqn(
-        num_episodes=300,
-        batch_size=8,
-        target_update_interval=3,
-        results_csv="results/target3_bs8_tu3.csv"
-    )
+    # Target network update experiment
+   # train_dqn(
+     #   num_episodes=60,
+      #  batch_size=8,
+     #   target_update_interval=3,
+       # results_csv="results/target3_bs8_tu3.csv"
+    #)
+
